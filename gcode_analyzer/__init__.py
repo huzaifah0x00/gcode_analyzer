@@ -42,6 +42,7 @@ class Analyzer(object):
         self.__extruder_acceleration = extruder_acceleration or 2000
         self.__z_acceleration = z_acceleration or 250
         self.__velocity = 5000
+        self.__extruder_offset = 0.0
         self.__process()
 
     def get_time(self):
@@ -59,6 +60,9 @@ class Analyzer(object):
                 line = fp.readline()
                 if not line:
                     break
+
+                if "M117" in line:
+                    continue
                 self.__gcode = GCode(line)
                 self.__process_gcode()
 
@@ -127,7 +131,7 @@ class Analyzer(object):
             if not self.__relative_extrusion:
                 e = self.__gcode.get("E", float, None)
                 if e is not None:
-                    dist_e = self.__pos["E"] - e
+                    dist_e = self.__pos["E"] - e - self.__extruder_offset
                 else:
                     dist_e = 0.0
             else:
@@ -179,12 +183,16 @@ class Analyzer(object):
             else:
                 e = self.__gcode.get("E", float, None)
                 if e is not None:
-                    self.__pos["E"] = e
+                    self.__pos["E"] = e + self.__extruder_offset
 
     def __handle_g92(self):
         if self.__gcode.get("G", int) == 92:
             for coordinate in ["X", "Y", "Z", "E"]:
                 value = self.__gcode.get(coordinate, float, None)
+
+                if coordinate == "E":
+                    self.__extruder_offset += self.__pos["E"] + (value or 0.0)
+
                 if value is not None:
                     self.__pos[coordinate] = value
 
